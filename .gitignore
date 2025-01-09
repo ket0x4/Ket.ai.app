@@ -23,5 +23,16 @@ doc/api/
 *.js.deps
 *.js.map
 
+# Flutter specific
+.flutter/
 .flutter-plugins
 .flutter-plugins-dependencies
+generated_plugin_registrant.dart
+
+# Build directories
+build/
+android/app/build/
+ios/Flutter/Flutter.framework/
+
+# Coverage reports
+coverage/

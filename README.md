@@ -1,2 +1,3 @@
-# Ket.ai.app
- some random app
+# aiket
+
+A new Flutter project.
