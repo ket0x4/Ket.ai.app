@@ -4,6 +4,8 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:io';
 import 'dart:async';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'about.dart';
 
 void main() {
@@ -46,6 +48,26 @@ class Message {
     this.model,
     this.generationTime,
   });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'content': content,
+      'isUser': isUser,
+      'timestamp': timestamp.toIso8601String(),
+      'model': model,
+      'generationTime': generationTime,
+    };
+  }
+
+  factory Message.fromJson(Map<String, dynamic> json) {
+    return Message(
+      content: json['content'],
+      isUser: json['isUser'],
+      timestamp: DateTime.parse(json['timestamp']),
+      model: json['model'],
+      generationTime: json['generationTime']?.toDouble(),
+    );
+  }
 }
 
 class ChatScreen extends StatefulWidget {
@@ -56,138 +78,78 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> {
-  final List<Message> _messages = [];
+  List<Message> _messages = [];
   final TextEditingController _textController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   bool _isLoading = false;
-  String _selectedModel = "gpt-4o-mini";
+  String _selectedModel = "openai-fast";
 
   final List<String> _availableModels = [
-    "Mixtral-8x7B-Instruct-v0.1",
-    "Llama-3-70b-chat-hf",
-    "claude-3-haiku-20240307",
-    "gpt-3.5-turbo-0125",
-    "gpt-4o-mini"
+    "openai-fast",
+    "gpt-4o",
+    "claude-3-opus",
   ];
 
-  Future<Map<String, dynamic>> _invokeDuckDuckGoChat(String prompt) async {
+  @override
+  void initState() {
+    super.initState();
+    _loadMessages();
+  }
+
+  Future<void> _loadMessages() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? messagesJson = prefs.getString('chat_messages');
+    if (messagesJson != null) {
+      final List<dynamic> decodedList = jsonDecode(messagesJson);
+      if (mounted) {
+        setState(() {
+          _messages = decodedList.map((e) => Message.fromJson(e)).toList();
+        });
+      }
+    }
+  }
+
+  Future<void> _saveMessages() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String encodedList =
+        jsonEncode(_messages.map((e) => e.toJson()).toList());
+    await prefs.setString('chat_messages', encodedList);
+  }
+
+  Future<Map<String, dynamic>> _invokePollinationsChat() async {
     final startTime = DateTime.now();
-
-    // Validate the URI
-    final statusUri = Uri.parse('https://duckduckgo.com/duckchat/v1/status');
-    final chatUri = Uri.parse('https://duckduckgo.com/duckchat/v1/chat');
-
-    //print('Status URI: $statusUri');
-    //print('Chat URI: $chatUri');
+    final uri = Uri.parse('https://text.pollinations.ai/');
 
     try {
-      // Check internet connectivity
-      final result = await InternetAddress.lookup('duckduckgo.com');
-      if (result.isEmpty || result[0].rawAddress.isEmpty) {
-        throw Exception('No internet connection detected.');
-      }
+      // Build the message history for context
+      // Note: _messages already contains the new prompt at the 0th index before this is called
+      List<Map<String, String>> history = _messages.reversed.map((m) {
+        return {
+          "role": m.isUser ? "user" : "assistant",
+          "content": m.content
+        };
+      }).toList();
 
-      // First request to get the token
-      final statusResponse = await http.get(
-        statusUri,
+      final response = await http.post(
+        uri,
         headers: {
-          "User-Agent":
-              "Mozilla/5.0 (X11; Linux x86_64; rv:127.0) Gecko/20100101 Firefox/127.0",
-          "Accept": "text/event-stream",
-          "Accept-Language": "en-US;q=0.7,en;q=0.3",
-          "Accept-Encoding": "gzip, deflate, br",
-          "Referer": "https://duckduckgo.com/",
-          "Origin": "https://duckduckgo.com",
-          "Connection": "keep-alive",
-          "Cookie": "dcm=1",
-          "Sec-Fetch-Dest": "empty",
-          "Sec-Fetch-Mode": "cors",
-          "Sec-Fetch-Site": "same-origin",
-          "Pragma": "no-cache",
-          "TE": "trailers",
-          "x-vqd-accept": "1",
-          "Cache-Control": "no-store",
-        },
-      ).timeout(
-        const Duration(seconds: 10),
-        onTimeout: () {
-          throw TimeoutException('Connection timed out while getting token.');
-        },
-      );
-
-      if (statusResponse.statusCode != 200) {
-        throw Exception(
-            'Failed to get token. Status code: ${statusResponse.statusCode}');
-      }
-
-      final token =
-          statusResponse.headers['x-vqd'] ?? statusResponse.headers['x-vqd-4'];
-      if (token == null) {
-        throw Exception('Token not found in response headers.');
-      }
-
-      //print('Received token: $token');
-
-      // Chat request
-      final chatResponse = await http
-          .post(
-        chatUri,
-        headers: {
-          "User-Agent":
-              "Mozilla/5.0 (X11; Linux x86_64; rv:127.0) Gecko/20100101 Firefox/127.0",
-          "Accept": "text/event-stream",
-          "Accept-Language": "en-US;q=0.7,en;q=0.3",
-          "Accept-Encoding": "gzip, deflate, br",
-          "Referer": "https://duckduckgo.com/",
           "Content-Type": "application/json",
-          "Origin": "https://duckduckgo.com",
-          "Connection": "keep-alive",
-          "Cookie": "dcm=1",
-          "x-vqd-4": token,
-          "Sec-Fetch-Dest": "empty",
-          "Sec-Fetch-Mode": "cors",
-          "Sec-Fetch-Site": "same-origin",
-          "Pragma": "no-cache",
-          "TE": "trailers",
-          "x-vqd-accept": "1",
-          "Cache-Control": "no-store",
+          "Accept": "text/plain",
         },
         body: json.encode({
           "model": _selectedModel,
-          "messages": [
-            {"role": "user", "content": prompt}
-          ],
+          "messages": history,
         }),
-      )
-          .timeout(
-        const Duration(seconds: 10),
+      ).timeout(
+        const Duration(seconds: 30),
         onTimeout: () {
-          throw TimeoutException(
-              'Connection timed out while sending chat request.');
+          throw TimeoutException('Connection timed out.');
         },
       );
 
-      if (chatResponse.statusCode != 200) {
+      if (response.statusCode != 200) {
         throw Exception(
-            'Failed to get chat response. Status code: ${chatResponse.statusCode}');
-      }
-
-      // Decode using UTF-8
-      final decodedBody = utf8.decode(chatResponse.bodyBytes);
-      final lines = decodedBody.split('\n');
-
-      String responseText = '';
-      for (var line in lines) {
-        if (line.length > 6 && line[6] == '{') {
-          try {
-            final data = json.decode(line.substring(6));
-            if (data.containsKey('message')) {
-              responseText += data['message'].replaceAll(r'\n', '\n');
-            }
-          } catch (e) {
-            //print('Error parsing line: $e');
-          }
-        }
+            'Failed to get response. Status code: ${response.statusCode}');
       }
 
       final endTime = DateTime.now();
@@ -195,12 +157,11 @@ class _ChatScreenState extends State<ChatScreen> {
           endTime.difference(startTime).inMilliseconds / 1000;
 
       return {
-        'response': responseText,
+        'response': utf8.decode(response.bodyBytes),
         'generationTime': generationTime,
       };
     } on SocketException catch (e) {
-      throw Exception(
-          'Network error: Unable to reach DuckDuckGo (${e.message}).');
+      throw Exception('Network error: Unable to reach Pollinations API (${e.message}).');
     } on TimeoutException catch (e) {
       throw Exception('Timeout error: ${e.message}');
     } catch (e) {
@@ -222,9 +183,10 @@ class _ChatScreenState extends State<ChatScreen> {
       _messages.insert(0, userMessage);
       _isLoading = true;
     });
+    _saveMessages();
 
     try {
-      final response = await _invokeDuckDuckGoChat(text);
+      final response = await _invokePollinationsChat();
 
       final botMessage = Message(
         content: response['response'],
@@ -238,6 +200,7 @@ class _ChatScreenState extends State<ChatScreen> {
         _isLoading = false;
         _messages.insert(0, botMessage);
       });
+      _saveMessages();
     } catch (e) {
       setState(() {
         _isLoading = false;
@@ -279,6 +242,7 @@ class _ChatScreenState extends State<ChatScreen> {
               setState(() {
                 _messages.clear();
               });
+              _saveMessages();
             },
           ),
           IconButton(
@@ -396,17 +360,22 @@ class MessageBubble extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: message.isUser
                         ? (Theme.of(context).brightness == Brightness.dark
-                            ? Colors.grey[800]
-                            : Colors.grey[200])
+                            ? Colors.blueGrey[800]
+                            : Colors.blueGrey[100])
                         : (Theme.of(context).brightness == Brightness.dark
-                            ? Colors.blue[800]
-                            : Colors.blue[200]),
-                    borderRadius: BorderRadius.circular(8.0),
+                            ? Colors.blue[900]
+                            : Colors.blue[50]),
+                    borderRadius: BorderRadius.circular(12.0),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(message.content),
+                      message.isUser
+                          ? Text(message.content)
+                          : MarkdownBody(
+                              data: message.content,
+                              selectable: true,
+                            ),
                       if (message.model != null &&
                           message.generationTime != null)
                         Padding(
