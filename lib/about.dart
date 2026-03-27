@@ -8,42 +8,74 @@ class AboutPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('About'),
+        title: const Text('About Ket.AI'),
+        centerTitle: true,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment
-              .center, // Changed from CrossAxisAlignment.start
-          children: [
-            const Text(
-              'Ket.AI is a chatbot application powered KacakAPI LTD.',
-              textAlign: TextAlign.center, // Added textAlign
-              style: TextStyle(fontSize: 24),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Card(
+            elevation: 4.0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16.0),
             ),
-            const SizedBox(height: 10),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.telegram),
-              label: const Text('Telegram'),
-              style: ElevatedButton.styleFrom(
-                minimumSize: Size(200, 50), // Increased button size
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.smart_toy,
+                    size: 80,
+                    color: Colors.blue,
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'Ket.AI',
+                    style: TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'A modern chatbot application powered by KacakAPI LTD and Pollinations AI.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 16, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 32),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.telegram),
+                    label: const Text('Telegram'),
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(200, 50),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(24.0),
+                      ),
+                    ),
+                    onPressed: () {
+                      _launchURL('https://t.me/ketsblog');
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.code),
+                    label: const Text('GitHub'),
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(200, 50),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(24.0),
+                      ),
+                    ),
+                    onPressed: () {
+                      _launchURL('https://github.com/ket0x4');
+                    },
+                  ),
+                ],
               ),
-              onPressed: () {
-                _launchURL('https://t.me/ketsblog');
-              },
             ),
-            const SizedBox(height: 10),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.code),
-              label: const Text('GitHub'),
-              style: ElevatedButton.styleFrom(
-                minimumSize: Size(200, 50), // Increased button size
-              ),
-              onPressed: () {
-                _launchURL('https://github.com/ket0x4');
-              },
-            ),
-          ],
+          ),
         ),
       ),
     );
