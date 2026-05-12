@@ -160,12 +160,15 @@ class _ChatScreenState extends State<ChatScreen> {
         'response': utf8.decode(response.bodyBytes),
         'generationTime': generationTime,
       };
-    } on SocketException catch (e) {
-      throw Exception('Network error: Unable to reach Pollinations API (${e.message}).');
-    } on TimeoutException catch (e) {
-      throw Exception('Timeout error: ${e.message}');
-    } catch (e) {
-      throw Exception('Unexpected error: ${e.toString()}');
+    } on SocketException catch (e, stackTrace) {
+      debugPrint('SocketException in _invokePollinationsChat: $e\n$stackTrace');
+      throw Exception('Network error: Unable to reach the service.');
+    } on TimeoutException catch (e, stackTrace) {
+      debugPrint('TimeoutException in _invokePollinationsChat: $e\n$stackTrace');
+      throw Exception('The connection timed out.');
+    } catch (e, stackTrace) {
+      debugPrint('Unexpected error in _invokePollinationsChat: $e\n$stackTrace');
+      throw Exception('An unexpected error occurred.');
     }
   }
 
@@ -201,13 +204,15 @@ class _ChatScreenState extends State<ChatScreen> {
         _messages.insert(0, botMessage);
       });
       _saveMessages();
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('Error in _handleSubmitted: $e\n$stackTrace');
       setState(() {
         _isLoading = false;
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          const SnackBar(
+              content: Text('An error occurred. Please try again later.')),
         );
       }
     }
